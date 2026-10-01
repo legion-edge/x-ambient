@@ -1,0 +1,108 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const http = require('node:http');
+const assert = require('node:assert/strict');
+const { Builder, By } = require('selenium-webdriver');
+const firefox = require('selenium-webdriver/firefox');
+const root = path.resolve(__dirname, '..');
+const out = path.join(root, 'output/firefox-qa');
+fs.mkdirSync(out, {recursive:true});
+const results = [];
+(async () => {
+  const extension = path.join(out, 'extension');
+  fs.cpSync(path.join(root, 'output/x-ambient-firefox'), extension, {recursive:true});
+  const manifest = JSON.parse(fs.readFileSync(path.join(extension, 'manifest.json')));
+  manifest.content_scripts[0].matches.push('http://127.0.0.1/*');
+  fs.writeFileSync(path.join(extension, 'manifest.json'), JSON.stringify(manifest));
+  const server = http.createServer((req,res) => {
+    const file = path.resolve(root, '.'+new URL(req.url,'http://localhost').pathname);
+    if (!file.startsWith(root+path.sep)) return res.writeHead(403).end();
+    try {
+      const types = {'.html':'text/html','.js':'text/javascript','.svg':'image/svg+xml','.webm':'video/webm','.css':'text/css','.json':'application/json'};
+      res.setHeader('Content-Type',types[path.extname(file)] || 'application/octet-stream');
+      res.end(fs.readFileSync(file));
+    } catch { res.writeHead(404).end(); }
+  });
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  let driver;
+  try {
+    driver = await new Builder().forBrowser('firefox').setFirefoxService(new firefox.ServiceBuilder().addArguments('--allow-system-access')).setFirefoxOptions(new firefox.Options().addArguments('-headless').setPreference('extensions.webextensions.uuids',JSON.stringify({'x-ambient@legion-edge':'12345678-1234-4234-8234-123456789abc'})).setPreference('media.autoplay.default',0)).build();
+    results.push({browser:(await driver.getCapabilities()).get('browserVersion'),profile:'WebDriver temporary profile; no user credentials'});
+    await driver.installAddon(extension,true);
+    const uuid = '12345678-1234-4234-8234-123456789abc';
+    assert.ok(uuid);
+    const popup = `moz-extension://${uuid}/src/popup.html`;
+    await driver.setContext('chrome');
+    await driver.executeScript("gBrowser.selectedBrowser.loadURI(Services.io.newURI(arguments[0]), {triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal()})", popup);
+    await driver.setContext('content');
+    await driver.wait(async()=>!(await driver.findElement(By.id('enabled')).getAttribute('disabled')),10000);
+    await driver.executeScript("document.querySelector('#intensity').value='77';document.querySelector('#intensity').dispatchEvent(new Event('input',{bubbles:true}))");
+    await driver.wait(()=>driver.executeScript("return browser.storage.local.get('xAmbientSettings').then(r=>r.xAmbientSettings?.intensity===77)"),5000);
+    await driver.setContext('chrome');
+    await driver.executeScript("gBrowser.selectedBrowser.loadURI(Services.io.newURI(arguments[0]), {triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal()})", popup);
+    await driver.setContext('content');
+    await driver.wait(async()=>(await driver.findElement(By.id('intensity')).getAttribute('value'))==='77',5000);
+    results.push({test:'real extension popup storage persistence',pass:true});
+    await driver.findElement(By.id('reset')).click();
+    await driver.wait(()=>driver.executeScript("return browser.storage.local.get('xAmbientSettings').then(r=>r.xAmbientSettings?.intensity===65)"),5000);
+    const base = `http://127.0.0.1:${server.address().port}`;
+    await driver.get(base+'/tests/fixtures/x-detail.html');
+    await driver.wait(()=>driver.executeScript("return !!document.querySelector('#x-ambient-light')"),5000);
+    const photo = await driver.findElement(By.css('[data-testid="tweetPhoto"] img'));
+    await driver.actions().move({origin:photo}).perform();
+    await driver.wait(()=>driver.executeScript("return document.querySelector('#x-ambient-light').shadowRoot.querySelector('.light').classList.contains('visible')"),5000, 'renderer visible');
+    const rendering = await driver.executeScript("const s=document.querySelector('#x-ambient-light').shadowRoot; const c=[...s.querySelectorAll('canvas')];return {mask:s.querySelector('.light').style.maskImage,canvas:c.map(x=>[x.width,x.height]),hosts:document.querySelectorAll('#x-ambient-light').length}");
+    assert.match(rendering.mask,/url/); assert.ok(rendering.canvas.some(c=>c[0]>0&&c[1]>0));
+    results.push({test:'installed content script image / SVG mask / Shadow DOM',pass:true,...rendering});
+    fs.writeFileSync(path.join(out,'image.png'),Buffer.from(await driver.takeScreenshot(),'base64'));
+    assert.ok(await driver.executeScript("return [...document.querySelector('#x-ambient-light').shadowRoot.querySelectorAll('canvas')].some(c=>c.getContext('2d').getImageData(0,0,c.width,c.height).data.some((v,i)=>i%4===3&&v>0))"));
+    const video = await driver.findElement(By.css('video'));
+    await driver.executeScript('arguments[0].scrollIntoView();arguments[0].play();',video);
+    await driver.actions().move({origin:video,x:10,y:10}).perform();
+    await driver.wait(()=>driver.executeScript("return document.querySelector('video').currentTime>0.1"),10000);
+    await driver.wait(()=>driver.executeScript("return document.querySelector('#x-ambient-light').shadowRoot.querySelector('.light').classList.contains('visible')"),5000);
+    const frame = await driver.executeScript("return [...document.querySelector('#x-ambient-light').shadowRoot.querySelectorAll('canvas')].map(c=>c.toDataURL()).join('')");
+    await driver.wait(async()=>(await driver.executeScript("return [...document.querySelector('#x-ambient-light').shadowRoot.querySelectorAll('canvas')].map(c=>c.toDataURL()).join('')"))!==frame,10000);
+    results.push({test:'video Canvas pixels change during playback',pass:true});
+    const fixtureTab = await driver.getWindowHandle();
+    await driver.switchTo().newWindow('tab');
+    const settingsTab = await driver.getWindowHandle();
+    await driver.setContext('chrome');
+    await driver.executeScript("gBrowser.selectedBrowser.loadURI(Services.io.newURI(arguments[0]), {triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal()})",popup);
+    await driver.setContext('content');
+    await driver.wait(async()=>!(await driver.findElement(By.id('enabled')).getAttribute('disabled')),5000);
+    await driver.findElement(By.id('enabled')).click();
+    await driver.wait(()=>driver.executeScript("return browser.storage.local.get('xAmbientSettings').then(r=>r.xAmbientSettings.enabled===false)"),5000);
+    await driver.switchTo().window(fixtureTab);
+    await driver.wait(()=>driver.executeScript("return !document.querySelector('#x-ambient-light').shadowRoot.querySelector('.light').classList.contains('visible')"),5000, 'disabled renderer');
+    results.push({test:'disable propagated',pass:true});
+    await driver.switchTo().window(settingsTab);
+    await driver.findElement(By.id('enabled')).click();
+    await driver.wait(()=>driver.executeScript("return browser.storage.local.get('xAmbientSettings').then(r=>r.xAmbientSettings.enabled===true)"),5000);
+    await driver.close();
+    await driver.switchTo().window(fixtureTab);
+    await driver.actions().move({origin:video}).perform();
+    await driver.wait(()=>driver.executeScript("return document.querySelector('#x-ambient-light').shadowRoot.querySelector('.light').classList.contains('visible')"),5000);
+    results.push({test:'popup storage change disables and re-enables installed renderer',pass:true});
+    for(let i=0;i<5;i++) {
+      await driver.executeScript('window.scrollBy(0,-50)');
+      await driver.manage().window().setRect({width:1000+i*20,height:800});
+    }
+    assert.equal(await driver.executeScript("return document.querySelectorAll('#x-ambient-light').length"),1);
+    await driver.executeScript('arguments[0].scrollIntoView({block:"center"})',video);
+    await driver.actions().move({origin:video,x:20,y:10}).perform();
+    await driver.wait(()=>driver.executeScript("const m=decodeURIComponent(document.querySelector('#x-ambient-light').shadowRoot.querySelector('.light').style.maskImage);return m.includes('width=\"'+innerWidth+'\"')"),5000);
+    await driver.executeAsyncScript("const done=arguments[arguments.length-1];requestAnimationFrame(()=>requestAnimationFrame(done))");
+    fs.writeFileSync(path.join(out,'video.png'),Buffer.from(await driver.takeScreenshot(),'base64'));
+    results.push({test:'video playback, scrolling, repeated resize; single renderer',pass:true});
+    await driver.setContext('chrome');
+    await driver.executeScript("gBrowser.selectedBrowser.loadURI(Services.io.newURI(arguments[0]), {triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal()})", popup);
+    await driver.setContext('content');
+    await driver.wait(async()=>!(await driver.findElement(By.id('enabled')).getAttribute('disabled')),5000);
+    for(let i=0;i<6;i++) await driver.findElement(By.id('enabled')).click();
+    await driver.wait(()=>driver.executeScript("return browser.storage.local.get('xAmbientSettings').then(r=>r.xAmbientSettings.enabled===true)"),5000);
+    results.push({test:'repeated popup toggles',pass:true});
+  } catch(error) { results.push({error:error.stack}); process.exitCode=1; }
+  finally { fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(results,null,2)); if(driver)await driver.quit(); await new Promise(resolve=>server.close(resolve)); }
+  console.log(JSON.stringify(results,null,2));
+})();
