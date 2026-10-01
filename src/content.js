@@ -152,7 +152,7 @@
     const owner = active ? activePost?.closest("ytd-watch-flexy") : null;
     if (nativeAmbientOwner !== owner) nativeAmbientOwner?.classList.remove("xa-youtube-active");
     nativeAmbientOwner = owner;
-    owner?.classList.add("xa-youtube-active");
+    if (owner && !owner.classList.contains("xa-youtube-active")) owner.classList.add("xa-youtube-active");
   }
 
   function scheduleReconcile() {
@@ -272,8 +272,12 @@
     for (let parent = element.parentElement; rect && parent; parent = parent.parentElement) {
       const style = getComputedStyle(parent);
       if (style.opacity === "0" || (instagram && (parent.hidden || parent.getAttribute("aria-hidden") === "true"))) return null;
-      const clipX = ["hidden", "clip", "auto", "scroll"].includes(style.overflowX);
-      const clipY = ["hidden", "clip", "auto", "scroll"].includes(style.overflowY);
+      // HTML propagates body overflow to the viewport when root overflow is visible.
+      // YouTube's body can have zero height while its app visibly overflows it.
+      const rootStyle = parent === document.body ? getComputedStyle(document.documentElement) : null;
+      const viewportOverflow = rootStyle?.overflowX === "visible" && rootStyle?.overflowY === "visible";
+      const clipX = !viewportOverflow && ["hidden", "clip", "auto", "scroll"].includes(style.overflowX);
+      const clipY = !viewportOverflow && ["hidden", "clip", "auto", "scroll"].includes(style.overflowY);
       // Root overflow clips to the viewport, already applied above, not its scrolled DOM box.
       if ((clipX || clipY) && parent !== document.documentElement && style.display !== "contents") {
         rect = Core.intersectRect(rect, parent.getBoundingClientRect(), clipX, clipY);
