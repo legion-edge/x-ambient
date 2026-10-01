@@ -31,4 +31,3 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'output/youtube-short
  }catch(error){results.push({error:error.stack});process.exitCode=1;if(d)results.push({diagnostics:await d.executeScript(`return {url:location.href,host:document.querySelector('#x-ambient-light')?.dataset,reels:[...document.querySelectorAll('ytd-reel-video-renderer')].map(r=>({class:r.className,id:r.querySelector('.ytp-title-link')?.getAttribute('href'),video:r.querySelector('video')?.readyState,player:r.querySelector('.html5-video-player')?.className}))}`)});if(d){try{fs.writeFileSync(path.join(out,'failure.png'),Buffer.from(await d.takeScreenshot(),'base64'));}catch{}}}
  finally{fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(results,null,2));if(d)await d.quit();await new Promise(r=>server.close(r));}console.log(JSON.stringify(results,null,2));
 })();
-
