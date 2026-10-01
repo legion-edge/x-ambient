@@ -33,7 +33,8 @@
         "https://kick.com/*",
         "https://www.kick.com/*",
         "https://instagram.com/*",
-        "https://www.instagram.com/*"
+        "https://www.instagram.com/*",
+        "https://www.youtube.com/*"
       ],
       "js": [
         "src/settings.js",
@@ -42,6 +43,7 @@
         "src/streaming.js",
         "src/instagram.js",
         "src/x-posts.js",
+        "src/youtube.js",
         "src/content.js"
       ],
       "run_at": "document_idle"

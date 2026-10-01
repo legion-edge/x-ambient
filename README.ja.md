@@ -82,3 +82,7 @@ TwitchとKickでは、画面内で最も大きい動画の色に自動で追従�
 ## Firefox PC版
 
 Firefox用の作成・一時インストールと検証手順は [FIREFOX.ja.md](FIREFOX.ja.md) を参照してください。
+
+## YouTube通常動画・シアターモード
+
+PC版YouTubeのwatch本編に対応。[対象範囲・手順](YOUTUBE.ja.md) を参照してください。

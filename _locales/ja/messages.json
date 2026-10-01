@@ -3,10 +3,10 @@
     "message": "X Ambient"
   },
   "extensionDescription": {
-    "message": "XとInstagramの画像・動画、TwitchとKickの配信から広がるアンビエントライト。"
+    "message": "X・Instagramの画像と動画、Twitch・Kickの配信、YouTubeの通常動画に広がるアンビエントライト。"
   },
   "popupSubtitle": {
-    "message": "X、Instagram、Twitch、Kickに、やわらかな光。"
+    "message": "X、Instagram、Twitch、Kick、YouTubeに、柔らかな光。"
   },
   "languageLabel": {
     "message": "言語"
@@ -51,7 +51,7 @@
     "message": "ウィンドウに合わせて画像・動画の幅を調整"
   },
   "hoverHint": {
-    "message": "X・Instagramの画像・動画とTwitch・Kickの配信"
+    "message": "X・InstagramのメディアとTwitch・Kick・YouTubeの動画に対応。"
   },
   "statusLoading": {
     "message": "設定を読み込み中…"
