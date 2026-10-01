@@ -1,3 +1,5 @@
+This record describes the normal/theater implementation at PR #3. Fullscreen changes and current evidence are documented in YOUTUBE-FULLSCREEN-VALIDATION.md.
+
 # YouTube validation
 
 Base: Firefox PR #1, commit 3190739d09c74b3a08617ed159d93e4941ed843b. Upstream remains mmnga/x-ambient @ 6977a59c26b731c4909970fdf814dc282c29093b. Windows, Node 24.11.1, installed Firefox 157.0. Existing Chrome manifest and MIT attribution retained; only www.youtube.com content-script host added.

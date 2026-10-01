@@ -24,3 +24,16 @@ test('only ready main watch video is selected, including paused frames',()=>{
  for(const state of [{ad:true},{mini:true},{hidden:true},{id:'bbbbbbbbbbb'},{fullscreen:{}},{pip:{}},{noPlayer:true},{noVideo:true},{video:{readyState:1}},{video:{videoWidth:0}},{video:{ended:true}}])assert.equal(YouTube.findVideo(tree(state).root,location),null,JSON.stringify(state));
  assert.equal(YouTube.findVideo(tree().root,{pathname:'/',search:''}),null);
 });
+
+test('fullscreen is limited to player-containing top layer and visible black bars',()=>{
+ const player={},video={closest:()=>player};
+ const full={tagName:'DIV',contains:x=>x===player};
+ assert.equal(YouTube.fullscreenContainer({fullscreenElement:full},video),full);
+ assert.equal(YouTube.fullscreenContainer({fullscreenElement:{tagName:'VIDEO',contains:()=>true}},video),null);
+ assert.equal(YouTube.fullscreenContainer({fullscreenElement:{tagName:'DIV',contains:()=>false}},video),null);
+ const view={width:1920,height:1080};
+ assert.equal(YouTube.hasFullscreenSpace({left:0,top:0,right:1920,bottom:1080},view),false);
+ assert.equal(YouTube.hasFullscreenSpace({left:1,top:2,right:1919,bottom:1078},view),false);
+ assert.equal(YouTube.hasFullscreenSpace({left:0,top:140,right:1920,bottom:940},view),true);
+ assert.equal(YouTube.hasFullscreenSpace({left:560,top:0,right:1360,bottom:1080},view),true);
+});

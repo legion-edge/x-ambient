@@ -61,6 +61,7 @@
   let route = routeKey();
   let youtubeNavigating = false;
   let nativeAmbientOwner = null;
+  let fullscreenTarget = null;
   let pointer = null;
   let activePost = null;
   let previewPost = null;
@@ -96,6 +97,7 @@
     canvas { position:absolute; inset:0; width:100%; height:100%; opacity:0; transition:opacity 300ms ease; filter:blur(var(--xa-blur)) saturate(1.65); }
     canvas.front { opacity:1; }
     @media (prefers-reduced-motion:reduce) { .light, canvas { transition:none; } }
+    :host([data-presentation="fullscreen"]) .light { transition:none; }
   `;
   const light = document.createElement("div");
   light.className = "light";
@@ -143,8 +145,29 @@
   }
 
   function eligible() {
-    return settings.enabled && settings.intensity > 0 && !document.hidden && !document.fullscreenElement
-      && (!youtube || (!youtubeNavigating && YouTube?.findVideo(document, location)));
+    if (!settings.enabled || settings.intensity <= 0 || document.hidden) return false;
+    if (!youtube) return !document.fullscreenElement;
+    const video = !youtubeNavigating && YouTube?.findVideo(document, location);
+    if (!video) return false;
+    if (!document.fullscreenElement) return true;
+    const box = video.getBoundingClientRect();
+    const content = imageDescriptor(video, video, box, box)?.fullRect;
+    return YouTube.hasFullscreenSpace(content, viewport());
+  }
+
+  function syncYouTubePresentation() {
+    if (!youtube) return;
+    const video = document.querySelector("ytd-watch-flexy:not([hidden]) #movie_player video.html5-main-video");
+    const target = YouTube?.fullscreenContainer(document, video) || null;
+    if (target !== fullscreenTarget) {
+      deactivate();
+      fullscreenTarget = target;
+    }
+    const parent = target || document.documentElement;
+    if (host.parentElement !== parent) parent.append(host);
+    const presentation = target ? "fullscreen" : "page";
+    if (host.dataset.presentation !== presentation) host.dataset.presentation = presentation;
+    if (host.style.position !== (target ? "absolute" : "fixed")) host.style.position = target ? "absolute" : "fixed";
   }
 
   function syncNativeAmbient(active) {
@@ -165,6 +188,7 @@
 
   function updateTheme() {
     if (platform === "x") return;
+    if (fullscreenTarget) { host.style.mixBlendMode = "screen"; return; }
     const backgrounds = [document.documentElement, document.body].filter(Boolean)
       .map(element => getComputedStyle(element).backgroundColor);
     let dark = colorScheme.matches;
@@ -282,7 +306,7 @@
       if ((clipX || clipY) && parent !== document.documentElement && style.display !== "contents") {
         rect = Core.intersectRect(rect, parent.getBoundingClientRect(), clipX, clipY);
       }
-      if (!instagram && parent === activePost) break;
+      if (parent === fullscreenTarget || (!instagram && parent === activePost)) break;
     }
     return rect && rect.width >= minIntersection && rect.height >= minIntersection ? rect : null;
   }
@@ -397,13 +421,16 @@
   function updateLayout() {
     if (!activePost || !bounds) return;
     const view = viewport();
-    const scope = settings.scope;
+    const scope = fullscreenTarget ? "fullscreen" : settings.scope;
     host.dataset.scope = scope;
     host.dataset.projection = "rays";
     let region;
-    if (scope === "page") {
+    if (scope === "page" || scope === "fullscreen") {
       const protectedRects = [];
-      for (const element of document.querySelectorAll("img, video, canvas")) {
+      const protectedElements = fullscreenTarget
+        ? [activePost, ...fullscreenTarget.querySelectorAll(YouTube.PROTECTED_SELECTOR)]
+        : document.querySelectorAll("img, video, canvas");
+      for (const element of protectedElements) {
         // Instagram's decorative Reel backdrop must remain part of the lit background.
         if (instagram && element.tagName === "IMG" && element.getAttribute("aria-hidden") === "true") continue;
         const presenter = element.tagName === "IMG" ? imagePresenter(element) : element;
@@ -571,6 +598,7 @@
   }
 
   function reconcile() {
+    syncYouTubePresentation();
     if (route !== routeKey()) {
       route = routeKey();
       pathname = location.pathname;
@@ -654,6 +682,7 @@
       if (route !== routeKey() || records.some(record => {
         const target = record.target;
         if (!(target instanceof Element) || target === host || host.contains(target)) return false;
+        if (fullscreenTarget?.contains(target)) return true;
         if (record.type === "attributes") return target.matches("ytd-watch-flexy, #movie_player, video");
         return [...record.addedNodes, ...record.removedNodes].some(node => node.nodeType === Node.ELEMENT_NODE
           && (node.matches("ytd-watch-flexy, #movie_player, video") || node.querySelector("ytd-watch-flexy, #movie_player, video")));
