@@ -10,7 +10,7 @@ fs.mkdirSync(out, {recursive:true});
 const results = [];
 (async () => {
   const extension = path.join(out, 'extension');
-  fs.cpSync(path.join(root, 'output/x-ambient-firefox'), extension, {recursive:true});
+  fs.cpSync(path.join(process.env.X_AMBIENT_OUTPUT_DIR || path.join(root,'output'),'x-ambient-firefox'), extension, {recursive:true});
   const manifest = JSON.parse(fs.readFileSync(path.join(extension, 'manifest.json')));
   manifest.content_scripts[0].matches.push('http://127.0.0.1/*');
   fs.writeFileSync(path.join(extension, 'manifest.json'), JSON.stringify(manifest));

@@ -22,12 +22,13 @@
   ],
   "scripts": {
     "test": "node --test tests/*.test.cjs",
-    "check": "node --check src/i18n.js && node --check src/instagram.js && node --check src/streaming.js && node --check src/x-posts.js && node --check scripts/zip.cjs && node --check src/settings.js && node --check src/ambient-core.js && node --check src/card-layout.js && node --check src/content.js && node --check src/popup.js && node --check demo/demo.js && node --check scripts/demo-server.cjs && node --check scripts/package.cjs && node --check scripts/test-firefox.cjs",
+    "check": "node --check src/i18n.js && node --check src/instagram.js && node --check src/streaming.js && node --check src/x-posts.js && node --check scripts/zip.cjs && node --check src/settings.js && node --check src/ambient-core.js && node --check src/card-layout.js && node --check src/content.js && node --check src/popup.js && node --check demo/demo.js && node --check scripts/demo-server.cjs && node --check scripts/package.cjs && node --check scripts/test-firefox.cjs && node --check src/youtube.js && node --check scripts/test-youtube.cjs",
     "demo": "node scripts/demo-server.cjs",
     "package": "node scripts/package.cjs",
     "package:firefox": "node scripts/package.cjs --firefox",
     "lint:firefox": "web-ext lint --source-dir output/x-ambient-firefox --warnings-as-errors",
-    "test:firefox": "node scripts/test-firefox.cjs"
+    "test:firefox": "node scripts/test-firefox.cjs",
+    "test:youtube": "node scripts/test-youtube.cjs"
   },
   "engines": {
     "node": ">=22"

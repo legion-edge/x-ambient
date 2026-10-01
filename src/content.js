@@ -32,12 +32,14 @@
   const Settings = globalThis.XAmbientSettings;
   const Streaming = globalThis.XAmbientStreaming;
   const Instagram = globalThis.XAmbientInstagram;
+  const YouTube = globalThis.XAmbientYouTube;
   if (!Core || !Settings) return;
   globalThis.__xAmbientDispose?.();
   const platform = Streaming?.platformForHostname(location.hostname) || "x";
   const instagram = platform === "instagram";
+  const youtube = platform === "youtube";
   const streaming = platform === "twitch" || platform === "kick";
-  const automatic = streaming || instagram;
+  const automatic = streaming || instagram || youtube;
   const cards = platform === "x" ? globalThis.XAmbientCardLayout?.create() : null;
 
   const IMAGE_SELECTOR = instagram ? "img" : [
@@ -55,6 +57,10 @@
   const posterCache = new WeakMap();
   let settings = { ...Settings.DEFAULTS };
   let pathname = location.pathname;
+  const routeKey = () => youtube ? `${location.pathname}:${YouTube?.watchId(location) || ""}` : location.pathname;
+  let route = routeKey();
+  let youtubeNavigating = false;
+  let nativeAmbientOwner = null;
   let pointer = null;
   let activePost = null;
   let previewPost = null;
@@ -110,6 +116,13 @@
     document.documentElement.append(backgroundStyle);
     style.textContent += "canvas { filter:blur(var(--xa-blur)); }";
   }
+  const youtubeStyle = youtube ? document.createElement("style") : null;
+  if (youtubeStyle) {
+    // Only suppress YouTube's visual layer while ours is actually drawing.
+    // Never change YouTube's stored ambient preference or its controls.
+    youtubeStyle.textContent = "ytd-watch-flexy.xa-youtube-active #cinematics { visibility:hidden !important; }";
+    document.documentElement.append(youtubeStyle);
+  }
   document.documentElement.append(host);
   const contexts = canvases.map((canvas) => canvas.getContext("2d"));
   const mosaic = document.createElement("canvas");
@@ -130,7 +143,16 @@
   }
 
   function eligible() {
-    return settings.enabled && settings.intensity > 0 && !document.hidden && !document.fullscreenElement;
+    return settings.enabled && settings.intensity > 0 && !document.hidden && !document.fullscreenElement
+      && (!youtube || (!youtubeNavigating && YouTube?.findVideo(document, location)));
+  }
+
+  function syncNativeAmbient(active) {
+    if (!youtube) return;
+    const owner = active ? activePost?.closest("ytd-watch-flexy") : null;
+    if (nativeAmbientOwner !== owner) nativeAmbientOwner?.classList.remove("xa-youtube-active");
+    nativeAmbientOwner = owner;
+    if (owner && !owner.classList.contains("xa-youtube-active")) owner.classList.add("xa-youtube-active");
   }
 
   function scheduleReconcile() {
@@ -224,6 +246,7 @@
   }
 
   function deactivate() {
+    syncNativeAmbient(false);
     clearTimeout(hoverTimer);
     hoverTimer = 0;
     pendingPost = null;
@@ -249,8 +272,12 @@
     for (let parent = element.parentElement; rect && parent; parent = parent.parentElement) {
       const style = getComputedStyle(parent);
       if (style.opacity === "0" || (instagram && (parent.hidden || parent.getAttribute("aria-hidden") === "true"))) return null;
-      const clipX = ["hidden", "clip", "auto", "scroll"].includes(style.overflowX);
-      const clipY = ["hidden", "clip", "auto", "scroll"].includes(style.overflowY);
+      // HTML propagates body overflow to the viewport when root overflow is visible.
+      // YouTube's body can have zero height while its app visibly overflows it.
+      const rootStyle = parent === document.body ? getComputedStyle(document.documentElement) : null;
+      const viewportOverflow = rootStyle?.overflowX === "visible" && rootStyle?.overflowY === "visible";
+      const clipX = !viewportOverflow && ["hidden", "clip", "auto", "scroll"].includes(style.overflowX);
+      const clipY = !viewportOverflow && ["hidden", "clip", "auto", "scroll"].includes(style.overflowY);
       // Root overflow clips to the viewport, already applied above, not its scrolled DOM box.
       if ((clipX || clipY) && parent !== document.documentElement && style.display !== "contents") {
         rect = Core.intersectRect(rect, parent.getBoundingClientRect(), clipX, clipY);
@@ -474,6 +501,11 @@
     const type = typeof video.requestVideoFrameCallback === "function" ? "video" : "raf";
     const next = (time) => {
       frameHandle = null;
+      if (youtube && (!eligible() || YouTube.findVideo(document, location) !== video)) {
+        deactivate();
+        scheduleReconcile();
+        return;
+      }
       if (!eligible() || !activePost?.isConnected || video.paused || video.ended) return;
       if (time - lastPaint >= FRAME_INTERVAL) {
         paint(front);
@@ -500,6 +532,7 @@
     bounds = Core.unionRects(media.map((item) => item.rect));
     host.dataset.mediaCount = String(media.length);
     if (!media.length || !bounds?.width || !bounds.height) {
+      syncNativeAmbient(false);
       light.classList.remove("visible");
       releaseBackgrounds();
       stopFrames();
@@ -520,6 +553,7 @@
       light.classList.add("visible");
     }
     startFrames();
+    syncNativeAmbient(light.classList.contains("visible"));
   }
 
   function activate(post) {
@@ -537,7 +571,8 @@
   }
 
   function reconcile() {
-    if (pathname !== location.pathname) {
+    if (route !== routeKey()) {
+      route = routeKey();
       pathname = location.pathname;
       // Coordinates from the previous page must not select a reply on arrival.
       pointer = null;
@@ -545,6 +580,14 @@
     }
     if (!eligible()) {
       deactivate();
+      return;
+    }
+    if (youtube) {
+      const video = YouTube.findVideo(document, location);
+      const rect = video && visibleRect(video, video.getBoundingClientRect(), 160, 48);
+      if (!rect) deactivate();
+      else if (video === activePost) refreshMedia();
+      else activate(video);
       return;
     }
     if (instagram) {
@@ -607,6 +650,16 @@
   });
   const activeResizeObserver = automatic ? new ResizeObserver(scheduleReconcile) : null;
   const pageObserver = new MutationObserver((records) => {
+    if (youtube) {
+      if (route !== routeKey() || records.some(record => {
+        const target = record.target;
+        if (!(target instanceof Element) || target === host || host.contains(target)) return false;
+        if (record.type === "attributes") return target.matches("ytd-watch-flexy, #movie_player, video");
+        return [...record.addedNodes, ...record.removedNodes].some(node => node.nodeType === Node.ELEMENT_NODE
+          && (node.matches("ytd-watch-flexy, #movie_player, video") || node.querySelector("ytd-watch-flexy, #movie_player, video")));
+      })) scheduleReconcile();
+      return;
+    }
     if (pathname !== location.pathname) scheduleReconcile();
     if ((!automatic && !pointer && !Posts.statusId(location.pathname)) || !eligible()) return;
     if (!automatic && records.some(record => record.type === "attributes" && record.target.matches('a[href*="/status/"]'))) scheduleReconcile();
@@ -621,7 +674,8 @@
   pageObserver.observe(document.body, {
     childList: true, subtree: true,
     attributes: true,
-    attributeFilter: automatic ? ["style", "class", "hidden", "aria-hidden", "src", "srcset", "poster"] : ["href"],
+    attributeFilter: youtube ? ["style", "class", "hidden", "video-id", "theater", "is-miniplayer", "src"]
+      : automatic ? ["style", "class", "hidden", "aria-hidden", "src", "srcset", "poster"] : ["href"],
   });
   const themeObserver = new MutationObserver(scheduleReconcile);
   themeObserver.observe(document.body, { attributes: true, attributeFilter: ["style", "class"] });
@@ -657,6 +711,17 @@
   if (window.navigation) listen(window.navigation, "currententrychange", scheduleReconcile);
   listen(document, "visibilitychange", scheduleReconcile);
   listen(document, "fullscreenchange", scheduleReconcile);
+  if (youtube) {
+    listen(document, "yt-navigate-start", () => { youtubeNavigating = true; deactivate(); });
+    listen(document, "yt-navigate-finish", () => { youtubeNavigating = false; scheduleReconcile(); });
+    listen(document, "yt-page-data-updated", scheduleReconcile);
+    listen(document, "yt-player-updated", scheduleReconcile);
+    // pushState has no popstate event; cover route changes without touching page history methods.
+    const routeTimer = window.setInterval(() => { if (route !== routeKey()) scheduleReconcile(); }, 500);
+    removers.push(() => clearInterval(routeTimer));
+    listen(document, "enterpictureinpicture", scheduleReconcile, true);
+    listen(document, "leavepictureinpicture", scheduleReconcile, true);
+  }
   for (const event of ["load", "loadeddata", "play", "pause", "ended", "seeked", "emptied", "resize"]) {
     listen(document, event, (event) => {
       if (event.target instanceof Element && ((automatic && event.target.matches("img, video"))
@@ -696,6 +761,7 @@
     cards?.dispose();
     restoreBackgrounds();
     backgroundStyle.remove();
+    youtubeStyle?.remove();
     for (const remove of removers) remove();
     host.remove();
   }
