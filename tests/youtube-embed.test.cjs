@@ -1,4 +1,4 @@
-const {test}=require('node:test'),assert=require('node:assert/strict'),Y=require('../src/youtube.js'),Core=require('../src/ambient-core.js'),manifest=require('../manifest.json');
+const {test}=require('node:test'),assert=require('node:assert/strict'),Y=require('../src/youtube.js'),Core=require('../src/ambient-core.js'),Streaming=require('../src/streaming.js'),manifest=require('../manifest.json');
 const location={pathname:'/embed/aaaaaaaaaaa'};
 function tree(state={}) {
   const video={readyState:4,videoWidth:1920,ended:false,...state.video};
@@ -6,11 +6,14 @@ function tree(state={}) {
   const title=state.noTitle?null:{getAttribute:()=>state.href||'/watch?v=aaaaaaaaaaa'};
   return {video,root:{querySelectorAll:()=>title?[title,...(state.extraTitles||[]).map(href=>({getAttribute:()=>href}))]:[],querySelector:()=>state.noPlayer?null:player,pictureInPictureElement:state.pip,fullscreenElement:state.fullscreen}};
 }
-test('embed injection is limited to existing www host embed paths without parent or fallback access',()=>{
+test('embed injection is limited to approved www and privacy-enhanced embed paths without parent or fallback access',()=>{
   assert.deepEqual(manifest.permissions,['storage']);
-  const entry=manifest.content_scripts[1];assert.deepEqual(entry.matches,['https://www.youtube.com/embed/*']);assert.equal(entry.all_frames,true);
-  assert.deepEqual(manifest.content_scripts[0].exclude_matches,entry.matches);assert.ok(!manifest.content_scripts[0].all_frames);
-  for(const item of manifest.content_scripts){assert.ok(!item.match_about_blank);assert.ok(!item.match_origin_as_fallback);assert.ok(!item.matches.some(x=>x.includes('nocookie')||x.includes('<all_urls>')));}
+  const entry=manifest.content_scripts[1];assert.deepEqual(entry.matches,['https://www.youtube.com/embed/*','https://www.youtube-nocookie.com/embed/*']);assert.equal(entry.all_frames,true);
+  assert.deepEqual(manifest.content_scripts[0].exclude_matches,['https://www.youtube.com/embed/*']);assert.ok(!manifest.content_scripts[0].all_frames);
+  assert.ok(!manifest.content_scripts[0].matches.some(x=>x.includes('nocookie')));
+  for(const item of manifest.content_scripts){assert.ok(!item.match_about_blank);assert.ok(!item.match_origin_as_fallback);assert.ok(!item.matches.some(x=>x.includes('<all_urls>')));}
+  assert.equal(Streaming.platformForHostname('www.youtube-nocookie.com'),'youtube');
+  for(const host of ['youtube-nocookie.com','m.youtube-nocookie.com','www.youtube-nocookie.com.evil'])assert.notEqual(Streaming.platformForHostname(host),'youtube');
 });
 test('embed routes accept only one exact video ID',()=>{
   assert.equal(Y.embedId(location),'aaaaaaaaaaa');assert.equal(Y.routeId(location),'aaaaaaaaaaa');
