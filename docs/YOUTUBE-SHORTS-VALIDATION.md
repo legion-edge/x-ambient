@@ -1,5 +1,7 @@
 # YouTube Shorts validation
 
+The first-next-input investigation has since been completed with same-profile OFF/ON and fully uninstalled controls. See [navigation investigation](YOUTUBE-NAVIGATION-VALIDATION.md); the exact browser/site cause remains uncertain, but the behavior also occurs without extension content scripts.
+
 Base main: 5336c262b2640359164bede235084f0071ff5f30 (merged PRs #1/#3/#5). Original upstream: 6977a59c26b731c4909970fdf814dc282c29093b. MIT/mmnga attribution retained; no manifest permissions changed. Issue #6; branch youtube-shorts.
 
 Windows, Node 24.11.1, installed Firefox 157.0. Browser runs use WebDriver disposable profiles, no personal profile/login/cookies copied. Signing and store submission are out of scope.
