@@ -138,7 +138,32 @@
     return `rgb(${rgb.map(channel => Math.round(channel * 255)).join(", ")})`;
   }
 
-  const api = Object.freeze({ unionRects, isVisibleRect, overlapFraction, intersectRect, fitImage, contentRect, buildPostMask, buildMediaMask, buildRayProjection, isDarkColor, resolveBackgroundColor });
+  function buildBackgroundClip(rectangles, view) {
+    // Disjoint background strips avoid image-mask coordinate offsets inside iframes.
+    // Merge protected intervals first so overlapping UI/media never uncover each other.
+    const boxes = rectangles.filter(r => [r.left, r.top, r.width, r.height].every(Number.isFinite))
+      .map(r => ({left: Math.max(0, Math.floor(r.left)), top: Math.max(0, Math.floor(r.top)),
+        right: Math.min(view.width, Math.ceil(r.left + r.width)), bottom: Math.min(view.height, Math.ceil(r.top + r.height))}))
+      .filter(r => r.right > r.left && r.bottom > r.top);
+    const rows = [...new Set([0, view.height, ...boxes.flatMap(r => [r.top, r.bottom])])].sort((a, b) => a - b);
+    const paths = [];
+    const add = (left, right, top, bottom) => {
+      if (right > left && bottom > top) paths.push(`M${left} ${top}H${right}V${bottom}H${left}Z`);
+    };
+    for (let i = 1; i < rows.length; i++) {
+      const top = rows[i - 1], bottom = rows[i];
+      const spans = boxes.filter(r => r.top < bottom && r.bottom > top).sort((a, b) => a.left - b.left);
+      let left = 0;
+      for (const span of spans) {
+        add(left, span.left, top, bottom);
+        left = Math.max(left, span.right);
+      }
+      add(left, view.width, top, bottom);
+    }
+    return paths.length ? `path("${paths.join(' ')}")` : 'inset(100%)';
+  }
+
+  const api = Object.freeze({ unionRects, isVisibleRect, overlapFraction, intersectRect, fitImage, contentRect, buildPostMask, buildMediaMask, buildBackgroundClip, buildRayProjection, isDarkColor, resolveBackgroundColor });
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else globalThis.XAmbientCore = api;
 })();

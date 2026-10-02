@@ -1,9 +1,11 @@
 # YouTube残件
 
-通常／シアター／watch全画面はmainに導入済み。Shortsと初回「次へ」の比較記録はPR #7、Shorts全画面は追加PRでレビュー対象です。拡張未インストールでも初回移動失敗が再現したため、原因を断定せずクリック補正は追加していません。
+通常視聴・シアター・watch全画面はmainに統合済み。Shortsと最初の「次へ」の比較記録はPR #7、Shorts全画面はPR #9でレビュー中で、どちらも未マージです。追加の自動クリックや権限で次へ問題を回避していません。
 
-標準PiP開始時の停止／終了時復帰はFirefox 157で確認済み。Firefox組み込みPiPの別ウィンドウへ描画する機構は通常content scriptから利用できません。検出も未保証のため利用時は拡張OFF。ブラウザ設定や特権APIは変更していません。
+既存www.youtube.com/embed/*のフレーム内描画を追加しました。[利用方法](../YOUTUBE_EMBED.ja.md) と [検証記録](YOUTUBE-EMBED-VALIDATION.md) を参照してください。親DOMアクセスや描画は追加していません。
 
-embedは現在対象外です。YouTubeフレーム内だけの対応と、親サイトまで光を広げる対応は必要なアクセス範囲が異なります。[Mozilla content_scripts資料](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/content_scripts) のall_framesは各フレームのURL一致に従います。親サイトへの広範な権限を無断で追加せず、目的と権限を決めてから扱います。
+https://www.youtube-nocookie.com/embed/*は新ホストの許可が必要なため承認待ちで未追加です。必要な読み取りは対象フレーム内の公開動画ID・タイトルDOM・mediaだけで、ローカル描画に使います。親DOM、Cookie、認証情報へのアクセスは不要です。親ページまで広がる効果には親サイトへの別の許可が必要です。
 
-実広告・DRM・認証付き動画、旧Firefox、Chrome実行、長時間CPU評価、実字幕の全画面ピクセル比較は未検証です。未署名Firefox ZIPは一時読み込み用であり、ストア公開やMozilla署名提出は行っていません。
+標準PiPの停止・復帰を検証済み。Firefox組み込みPiPの実際の開閉も確認しましたが標準ページAPIに状態が出ないため自動停止は保証できません。[OFF→PiP→閉じる→ON](../FIREFOX_PIP.ja.md)を使ってください。内部APIや設定を変更していません。
+
+実広告・DRM・認証付き動画、旧Firefox、Chrome実行、長時間CPU評価は未検証です。未署名ZIPは一時読み込み用で、ストア公開やMozilla署名提出はしていません。
