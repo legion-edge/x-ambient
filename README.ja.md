@@ -65,7 +65,7 @@ npm test
 
 外部メディアを描いたCanvasは読み出しが制限されるため、ピクセルの読み出し・書き出しを使わず、Canvas自体を表示します。[MDN: drawImage](https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/drawImage)、[MDN: 外部画像とCanvas](https://developer.mozilla.org/en-US/docs/Web/HTML/How_to/CORS_enabled_image)。
 
-権限は設定保存の `storage` と、コンテンツスクリプトを動かすX/Twitter、Instagram、Twitch、Kickのページアクセスのみ。画面キャプチャ・全サイトへのアクセス・外部サーバーへの送信はありません。
+権限は設定保存の `storage` と、コンテンツスクリプトを動かすX/Twitter、Instagram、Twitch、Kick、YouTubeのページアクセスのみ。プライバシー強化版YouTubeは承認されたhttps://www.youtube-nocookie.com/embed/*だけにcontent scriptを追加し、任意の親サイトへのアクセスは追加していません。画面キャプチャ・全サイトへのアクセス・外部サーバーへの送信はありません。
 
 Instagramの対応範囲は通常のフィードとリールです。ストーリーズ・DM・プロフィールの一覧は対象外です。サイトのDOM構造が変わると、メディアを検出するセレクターの更新が必要になることがあります。暗号化されている動画など、ブラウザがCanvasへの描画を許可しないメディアには対応しません。
 
@@ -86,3 +86,5 @@ Firefox用の作成・一時インストールと検証手順は [FIREFOX.ja.md]
 ## YouTube通常動画・シアターモード
 
 PC版YouTubeのwatch本編に対応。[対象範囲・手順](YOUTUBE.ja.md) を参照してください。
+
+YouTubeの通常埋め込みとプライバシー強化版はフレーム内に対応します。[利用と権限](YOUTUBE_EMBED.ja.md)、[Firefox組み込みPiPの手順と制限](FIREFOX_PIP.ja.md) を参照してください。

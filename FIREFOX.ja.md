@@ -12,7 +12,7 @@ Firefoxで `about:debugging#/runtime/this-firefox` を開き「一時的なア�
 
 ## 権限・データ
 
-追加権限はありません。storageと上流の対応サイトに限定したcontent scriptsのみです。サイトに既に表示された画像・動画をCanvasへ描画し、設定をstorage.localへ保存します。翻訳のfetchは拡張に同梱されたJSONのみです。解析・テレメトリ・外部へのデータ送信処理はありません。動画posterの既存URLをImageとして読み込む場合があり、メディアサーバーへの取得・キャッシュ再検証が発生し得ます。このソース調査に基づきFirefox用manifestで `data_collection_permissions.required: ["none"]` を宣言しています。サイト自身の通信はこの宣言の対象ではありません。
+権限はstorageと対応サイトのcontent scriptsです。上流以降のYouTube対応にはwww.youtube.com、承認済みのプライバシー強化版にはhttps://www.youtube-nocookie.com/embed/*のアクセスが含まれます。nocookieの他パスや任意親サイトへの注入はありません。ブラウザの権限表示はホスト単位になる場合がありますが、content scriptの実行条件は/embed/*に限定しています。サイトに既に表示された画像・動画をCanvasへ描画し、設定をstorage.localへ保存します。翻訳のfetchは拡張に同梱されたJSONのみです。解析・テレメトリ・外部へのデータ送信処理はありません。動画posterの既存URLをImageとして読み込む場合があり、メディアサーバーへの取得・キャッシュ再検証が発生し得ます。このソース調査に基づきFirefox用manifestで `data_collection_permissions.required: ["none"]` を宣言しています。サイト自身の通信はこの宣言の対象ではありません。
 
 Firefox用の固定IDは `x-ambient@legion-edge`、最低バージョンは142です。Androidは対象外です。chrome名前空間はFirefoxが提供する互換APIを使用し、Canvas、CSS/SVGマスク、Shadow DOM、動画フレームコールバック（非対応時はrequestAnimationFrame）を共用します。
 

@@ -3,7 +3,7 @@
 
   function platformForHostname(hostname) {
     const host = String(hostname).toLowerCase();
-    if (host === "www.youtube.com") return "youtube";
+    if (host === "www.youtube.com" || host === "www.youtube-nocookie.com") return "youtube";
     if (["twitch.tv", "www.twitch.tv"].includes(host)) return "twitch";
     if (["kick.com", "www.kick.com"].includes(host)) return "kick";
     if (["instagram.com", "www.instagram.com"].includes(host)) return "instagram";

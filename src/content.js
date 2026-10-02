@@ -411,7 +411,8 @@
         const descriptor = imageDescriptor(video, video, rect, fullRect);
         if (descriptor) videos.push(descriptor);
       }
-      else {
+      else if (!youtube) {
+        // YouTube uses only ready in-page video frames; never refetch its poster.
         const poster = posterFor(video);
         const sibling = !poster && instagram && instagramPoster(video);
         const descriptor = poster ? imageDescriptor(poster, video, rect, fullRect)

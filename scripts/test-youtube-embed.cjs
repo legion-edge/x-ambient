@@ -1,6 +1,8 @@
 const fs = require('node:fs'), path = require('node:path'), http = require('node:http'), assert = require('node:assert/strict');
 const {Builder, By, Key} = require('selenium-webdriver'), firefox = require('selenium-webdriver/firefox');
-const root = path.resolve(__dirname, '..'), out = path.join(root, 'output/youtube-embed-qa');
+const privacyEnhanced = process.argv.includes('--nocookie');
+const embedHost = privacyEnhanced ? 'www.youtube-nocookie.com' : 'www.youtube.com';
+const root = path.resolve(__dirname, '..'), out = path.join(root, privacyEnhanced ? 'output/youtube-nocookie-qa' : 'output/youtube-embed-qa');
 fs.mkdirSync(out, {recursive: true});
 const results = [];
 process.env.MOZ_HEADLESS_WIDTH = '1280'; process.env.MOZ_HEADLESS_HEIGHT = '1024';
@@ -18,7 +20,7 @@ process.env.MOZ_HEADLESS_WIDTH = '1280'; process.env.MOZ_HEADLESS_HEIGHT = '1024
   const server = http.createServer((req, res) => {
     const url = new URL(req.url, 'http://localhost');
     if (url.pathname === '/parent') {
-      const frameURL = url.searchParams.has('live') ? 'https://www.youtube.com/embed/aqz-KE-bpKQ?autoplay=1&mute=1' : `http://localhost:${server.address().port}/embed/aaaaaaaaaaa`;
+      const frameURL = url.searchParams.has('live') ? `https://${embedHost}/embed/aqz-KE-bpKQ?autoplay=1&mute=1` : `http://localhost:${server.address().port}/embed/aaaaaaaaaaa`;
       res.setHeader('Content-Type', 'text/html');
       return res.end(`<!doctype html><title>Cross-origin embed test parent</title><style>body{margin:24px;background:white}iframe{border:0;width:${url.searchParams.has('live')?'480px':'640px'};height:${url.searchParams.has('live')?'640px':'480px'}}footer{height:1800px}</style><h1>Public or original local video frame</h1><iframe allow="autoplay; fullscreen" allowfullscreen src="${frameURL}"></iframe><footer>Scroll fixture</footer>`);
     }
@@ -91,11 +93,15 @@ process.env.MOZ_HEADLESS_WIDTH = '1280'; process.env.MOZ_HEADLESS_HEIGHT = '1024
     if (process.argv.includes('--live')) {
       await driver.get(base + '/parent?live'); await enter(); await on();
       const playButtons=await driver.findElements(By.css('button.ytmCuedOverlayPlayButton,button.ytp-large-play-button,button[aria-label="再生"],button[aria-label="動画を再生"],button[aria-label="Play"],button[aria-label="Play video"]'));let trustedPlay=false;for(const b of playButtons){if(await b.isDisplayed()){await b.click();trustedPlay=true;break;}}if(!trustedPlay)await driver.executeScript("return document.querySelector('#movie_player video').play()");await driver.wait(()=>driver.executeScript("return document.querySelector('#movie_player video').currentTime>1"),15000,'public playback progresses');await driver.executeScript("const v=document.querySelector('#movie_player video');v.currentTime=45;v.pause()");await driver.wait(()=>driver.executeScript("const v=document.querySelector('#movie_player video');return !v.seeking&&v.readyState>=2&&v.currentTime>44"),15000);await driver.sleep(2200);
-      const dimensions = await driver.executeScript("const v=document.querySelector('#movie_player video');return {source:[v.videoWidth,v.videoHeight],viewport:[innerWidth,innerHeight],fit:getComputedStyle(v).objectFit,pathname:location.pathname}");
+      const dimensions = await driver.executeScript("const v=document.querySelector('#movie_player video');return {source:[v.videoWidth,v.videoHeight],viewport:[innerWidth,innerHeight],fit:getComputedStyle(v).objectFit,pathname:location.pathname,hostname:location.hostname}");
+      assert.equal(dimensions.hostname, embedHost, 'privacy-enhanced host must not be rewritten');
+      const originalSource = await driver.executeScript("return document.querySelector('#movie_player video').currentSrc");
       const liveOn = await pixels([[240,100],[40,100],[440,540],[240,540],[80,240],[80,320],[400,380],[15,50],[16,528],[35,548]]); await capture('live-on'); await settings({enabled: false}); await off(); await driver.sleep(500);
       const liveOff = await pixels([[240,100],[40,100],[440,540],[240,540],[80,240],[80,320],[400,380],[15,50],[16,528],[35,548]]); await capture('live-off'); assert.notDeepEqual(liveOn.slice(0,4),liveOff.slice(0,4));assert.deepEqual(liveOn.slice(4),liveOff.slice(4),'public paused video pixels must remain unchanged');
-      await settings({enabled: true}); await on(); await driver.switchTo().defaultContent(); assert.equal(await driver.executeScript("return !!document.querySelector('#x-ambient-light')"), false);
-      results.push({test: 'real public www YouTube cross-origin embed, visible margin ON/OFF and setting restore; parent unmatched', pass: true, trustedPlay,marginOn: liveOn.slice(0,4), marginOff: liveOff.slice(0,4),videoPixels:liveOn.slice(4,7),uiPixels:liveOn.slice(7), ...dimensions});
+      await settings({enabled: true}); await on();
+      assert.equal(await driver.executeScript("return document.querySelector('#movie_player video').currentSrc"), originalSource, 'addon must not replace/refetch the media source');
+      await driver.switchTo().defaultContent(); assert.equal(await driver.executeScript("return !!document.querySelector('#x-ambient-light')"), false);
+      results.push({test: 'real public YouTube cross-origin embed, visible margin ON/OFF and setting restore; parent unmatched', pass: true, embedHost, privacyEnhanced, trustedPlay,marginOn: liveOn.slice(0,4), marginOff: liveOff.slice(0,4),videoPixels:liveOn.slice(4,7),uiPixels:liveOn.slice(7), ...dimensions});
     }
   } catch (error) {
     results.push({error: error.stack}); process.exitCode = 1;if(driver)try{results.push({diagnostics:await driver.executeScript("return {path:location.pathname,fullTag:document.fullscreenElement?.tagName,fixture:window.fixture,host:document.querySelector('#x-ambient-light')?.dataset,bodyRect:document.body.getBoundingClientRect().toJSON()}" )});}catch{}

@@ -22,3 +22,5 @@ npm run test:firefox:native-pip actually opens and closes Firefox's native conte
 ## Limits
 
 Firefox 157 on Windows is tested. Older Firefox, Chrome runtime, real ads, DRM, login, long-duration CPU use, all YouTube layouts and native PiP on a live YouTube page remain unverified. youtube-nocookie.com needs a new host grant and is pending approval, not included. Parent-page effects need separate parent-site access and are not implemented. Packages remain unsigned temporary-install artifacts; no Mozilla submission or store publication.
+
+This document records PR11 before the additional host approval. The subsequent explicitly approved nocookie change and current permission scope are recorded in [YOUTUBE-NOCOOKIE-VALIDATION.md](YOUTUBE-NOCOOKIE-VALIDATION.md).
