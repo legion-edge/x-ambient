@@ -157,7 +157,7 @@
 
   function syncYouTubePresentation() {
     if (!youtube) return;
-    const video = document.querySelector("ytd-watch-flexy:not([hidden]) #movie_player video.html5-main-video");
+    const video = YouTube?.findVideo(document, location);
     const target = YouTube?.fullscreenContainer(document, video) || null;
     if (target !== fullscreenTarget) {
       deactivate();
@@ -188,7 +188,8 @@
 
   function updateTheme() {
     if (platform === "x") return;
-    if (fullscreenTarget) { host.style.mixBlendMode = "screen"; return; }
+    // Player fullscreen uses black bars; Shorts can fullscreen the light-themed HTML root.
+    if (fullscreenTarget && (fullscreenTarget !== document.documentElement || !YouTube.shortsId(location))) { host.style.mixBlendMode = "screen"; return; }
     const backgrounds = [document.documentElement, document.body].filter(Boolean)
       .map(element => getComputedStyle(element).backgroundColor);
     let dark = colorScheme.matches;
@@ -429,7 +430,7 @@
     if (scope === "page" || scope === "fullscreen") {
       const protectedRects = [];
       const protectedElements = fullscreenTarget
-        ? [activePost, ...fullscreenTarget.querySelectorAll(YouTube.PROTECTED_SELECTOR)]
+        ? [activePost, ...fullscreenTarget.querySelectorAll(shorts ? YouTube.SHORTS_PROTECTED_SELECTOR : YouTube.PROTECTED_SELECTOR)]
         : shorts ? [activePost, ...document.querySelectorAll(YouTube.SHORTS_PROTECTED_SELECTOR)]
           : document.querySelectorAll("img, video, canvas");
       for (const element of protectedElements) {
@@ -714,7 +715,7 @@
     childList: true, subtree: true,
       attributes: true,
       attributeOldValue: youtube,
-    attributeFilter: youtube ? ["style", "class", "hidden", "aria-hidden", "is-active", "video-id", "theater", "is-miniplayer", "src", "href"]
+    attributeFilter: youtube ? ["style", "class", "hidden", "visibility", "aria-hidden", "aria-expanded", "open", "role", "is-active", "video-id", "theater", "is-miniplayer", "src", "href"]
       : automatic ? ["style", "class", "hidden", "aria-hidden", "src", "srcset", "poster"] : ["href"],
   });
   const themeObserver = new MutationObserver(scheduleReconcile);

@@ -8,6 +8,6 @@ Firefox: `npm ci` → `npm run package:firefox` → `npm run lint:firefox`。一
 
 検証: `npm run check`、`npm test`、`npm run test:firefox`、`npm run test:youtube -- --live`、`npm run test:youtube:fullscreen -- --live`、`npm run test:youtube:shorts -- --live`。最後のテストは専用一時Firefoxプロファイルとlocalhost fixtureを使い、`--live` 時には未ログインの公開Shortsも操作します。結果は `output/youtube-shorts-qa/results.json`。localhost権限や診断hookは配布版に含まれません。
 
-Shorts全画面・embed・PiPは対応範囲外です。Firefox固有PiPの検出は保証できないため使用時は拡張OFFにしてください。実広告・DRM・ログイン環境・モバイル・旧Firefox・Chromeでの実行は未検証です。サイトDOMの変更でプレーヤー識別やUI保護が変わる場合があります。一般的なUIを矩形で保護するため、周囲の背景も一部光らない場合があります。CPU使用率の端末横断ベンチマークは行っていません。
+Shorts全画面は [全画面手順](YOUTUBE_SHORTS_FULLSCREEN.ja.md) を参照してください。embedは対応範囲外です。標準PiP開始時の停止・終了時の復帰はFirefox 157で検証済みです。Firefox固有PiPの検出は保証できないため使用時は拡張OFFにしてください。実広告・DRM・ログイン環境・モバイル・旧Firefox・Chromeでの実行は未検証です。サイトDOMの変更でプレーヤー識別やUI保護が変わる場合があります。一般的なUIを矩形で保護するため、周囲の背景も一部光らない場合があります。CPU使用率の端末横断ベンチマークは行っていません。
 
 上流mmngaのMIT LICENSEと帰属を保全しています。Shorts追加で権限・外部データ送信・バックグラウンド処理は追加していません。

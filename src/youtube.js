@@ -41,7 +41,7 @@
 
   function findShortVideo(root, location) {
     const id = shortsId(location), view = root.defaultView;
-    if (!id || !view || root.fullscreenElement || root.pictureInPictureElement) return null;
+    if (!id || !view || root.pictureInPictureElement) return null;
     let best = null, bestArea = 0;
     for (const reel of root.querySelectorAll('ytd-reel-video-renderer')) {
       if (shortVideoId(reel) !== id) continue;
@@ -49,6 +49,8 @@
       const video = player?.querySelector('video.html5-main-video');
       if (!video || video.ended || video.readyState < 2 || !video.videoWidth
         || player.matches('.ad-showing, .ad-interrupting, .ytp-player-minimized')) continue;
+      const full = root.fullscreenElement && fullscreenContainer(root, video);
+      if (root.fullscreenElement && !full) continue;
       const box = video.getBoundingClientRect();
       let left = Math.max(0, box.left), top = Math.max(0, box.top);
       let right = Math.min(view.innerWidth, box.right), bottom = Math.min(view.innerHeight, box.bottom);
@@ -61,6 +63,8 @@
           if (['hidden','clip','auto','scroll'].includes(style.overflowX)) { left = Math.max(left, rect.left); right = Math.min(right, rect.right); }
           if (['hidden','clip','auto','scroll'].includes(style.overflowY)) { top = Math.max(top, rect.top); bottom = Math.min(bottom, rect.bottom); }
         }
+        // A top-layer element ignores clipping/hidden ancestors outside that layer.
+        if (node === full) break;
       }
       const area = Math.max(0, right-left)*Math.max(0,bottom-top);
       // URL/DOM must agree and at least half the picture must be on screen.
@@ -71,7 +75,7 @@
 
   function fullscreenContainer(root, video) {
     const full = root.fullscreenElement;
-    const player = video?.closest?.("#movie_player");
+    const player = video?.closest?.("#movie_player, #shorts-player, .html5-video-player");
     // A replaced <video> cannot display child overlays. Support the YouTube player top layer only.
     return full && full.tagName !== "VIDEO" && player && full.contains?.(player) ? full : null;
   }
@@ -83,7 +87,7 @@
   }
 
   const PROTECTED_SELECTOR = ".ytp-chrome-top, .ytp-chrome-bottom, .caption-window, .ytp-settings-menu, .ytp-popup, .ytp-tooltip, .ytp-pause-overlay, button, [role=button]";
-  const SHORTS_PROTECTED_SELECTOR = `${PROTECTED_SELECTOR}, #metadata, #actions, #overlay, #sticker-layer, #scrubber, reel-action-bar-view-model, yt-reel-player-overlay-view-model, ytd-engagement-panel-section-list-renderer, [role=dialog], ytd-masthead, ytd-mini-guide-renderer, ytd-guide-renderer`;
+  const SHORTS_PROTECTED_SELECTOR = `${PROTECTED_SELECTOR}, #metadata, #actions, #overlay, #sticker-layer, #scrubber, reel-action-bar-view-model, yt-reel-player-overlay-view-model, ytd-engagement-panel-section-list-renderer, [role=dialog], [role=menu], [role=menuitem], [role=listbox], [role=tooltip], ytd-menu-popup-renderer, yt-list-view-model, ytd-masthead, ytd-mini-guide-renderer, ytd-guide-renderer`;
 
   const api = Object.freeze({ watchId, shortsId, routeId, findVideo, findShortVideo, fullscreenContainer, hasFullscreenSpace, PROTECTED_SELECTOR, SHORTS_PROTECTED_SELECTOR });
   if (typeof module !== "undefined" && module.exports) module.exports = api;
