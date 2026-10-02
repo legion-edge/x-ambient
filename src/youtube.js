@@ -115,10 +115,64 @@
   }
 
   const PROTECTED_SELECTOR = ".ytp-chrome-top, .ytp-chrome-bottom, .caption-window, .ytp-settings-menu, .ytp-popup, .ytp-tooltip, .ytp-pause-overlay, button, [role=button]";
-  const SHORTS_PROTECTED_SELECTOR = `${PROTECTED_SELECTOR}, #metadata, #actions, #overlay, #sticker-layer, #scrubber, reel-action-bar-view-model, yt-reel-player-overlay-view-model, ytd-engagement-panel-section-list-renderer, [role=dialog], [role=menu], [role=menuitem], [role=listbox], [role=tooltip], ytd-menu-popup-renderer, yt-list-view-model, ytd-masthead, ytd-mini-guide-renderer, ytd-guide-renderer`;
+  const SHORTS_LAYOUT_SELECTOR = "#metadata, #actions, #overlay, #sticker-layer, reel-action-bar-view-model, yt-reel-player-overlay-view-model";
+  const SHORTS_WRAPPER_SELECTOR = "#overlay, yt-reel-player-overlay-view-model";
+  const SHORTS_PROTECTED_SELECTOR = `${PROTECTED_SELECTOR}, video, #scrubber, [role=slider], ytd-engagement-panel-section-list-renderer, [role=dialog], [role=menu], [role=menuitem], [role=listbox], [role=tooltip], ytd-menu-popup-renderer, yt-list-view-model, ytd-masthead, ytd-mini-guide-renderer, ytd-guide-renderer`;
+  const SHORTS_OBSERVED_SELECTOR = `${SHORTS_PROTECTED_SELECTOR}, ${SHORTS_LAYOUT_SELECTOR}`;
+
+  function shortsProtection(root, reel) {
+    const elements = new Set([...root.querySelectorAll(SHORTS_PROTECTED_SELECTOR)]
+      .filter(element => !element.matches(SHORTS_WRAPPER_SELECTOR)));
+    const textRects = [];
+    if (!reel) return { elements: [...elements], textRects };
+    const doc = reel.ownerDocument, view = doc.defaultView;
+    // Include visible neighboring reels during scrolling, without measuring preload UI.
+    const layouts = [...root.querySelectorAll(SHORTS_LAYOUT_SELECTOR)].filter(layout => {
+      const box = layout.getBoundingClientRect(), style = view.getComputedStyle(layout);
+      return box.width > 0 && box.height > 0 && box.right > 0 && box.bottom > 0
+        && box.left < view.innerWidth && box.top < view.innerHeight
+        && !layout.closest('[hidden], [aria-hidden=true]') && style.display !== 'none'
+        && style.visibility === 'visible' && style.opacity !== '0';
+    });
+    // Protect painted local cards, but never the structural overlay's empty space.
+    for (const layout of layouts) {
+      const style = view.getComputedStyle(layout), color = style.backgroundColor;
+      const alpha = /^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)$/.exec(color)?.[1];
+      const painted = style.backgroundImage !== 'none' || (color !== 'transparent'
+        && color !== 'rgba(0, 0, 0, 0)' && (alpha === undefined || Number(alpha) > 0));
+      if (!layout.matches(SHORTS_WRAPPER_SELECTOR) && painted) elements.add(layout);
+      for (const graphic of layout.querySelectorAll('img, svg, canvas, input, select, textarea, [role=slider], [role=progressbar]')) elements.add(graphic);
+      // CSS-generated badges have no text node; retain their local leaf box.
+      for (const leaf of layout.querySelectorAll('*')) {
+        if (leaf.childElementCount || leaf.matches(SHORTS_WRAPPER_SELECTOR)) continue;
+        if (['::before', '::after'].some(pseudo => {
+          const content = view.getComputedStyle(leaf, pseudo).content;
+          return content && content !== 'none' && content !== 'normal';
+        })) elements.add(leaf);
+      }
+    }
+    const seen = new Set(), range = doc.createRange();
+    for (const layout of layouts) {
+      const walker = doc.createTreeWalker(layout, 4); // SHOW_TEXT; no page/private API.
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (seen.has(node) || !node.textContent.trim()) continue;
+        seen.add(node);
+        const element = node.parentElement;
+        if (!element || element.closest('script, style, template, noscript')) continue;
+        range.selectNodeContents(node);
+        // Per-line glyph boxes preserve wrapping without blank container-sized holes.
+        for (const box of range.getClientRects()) {
+          if (box.width <= 0 || box.height <= 0) continue;
+          textRects.push({ element, rect: { left: box.left - 3, top: box.top - 3,
+            right: box.right + 3, bottom: box.bottom + 3, width: box.width + 6, height: box.height + 6 } });
+        }
+      }
+    }
+    return { elements: [...elements], textRects };
+  }
   const EMBED_PROTECTED_SELECTOR = `${PROTECTED_SELECTOR}, .ytp-title-text, .ytmVideoInfoHost, .ytmVideoInfoVideoTitle, .ytwPlayerTimeDisplayHost, .ytPlayerProgressBarHost, .ytp-cued-thumbnail-overlay, .ytp-endscreen-content, .ytp-error, [role=dialog], [role=menu], [role=menuitem], [role=tooltip]`;
 
-  const api = Object.freeze({ watchId, shortsId, embedId, routeId, findVideo, findShortVideo, findEmbedVideo, fullscreenContainer, hasFullscreenSpace, PROTECTED_SELECTOR, SHORTS_PROTECTED_SELECTOR, EMBED_TITLE_SELECTOR, EMBED_PROTECTED_SELECTOR });
+  const api = Object.freeze({ watchId, shortsId, embedId, routeId, findVideo, findShortVideo, findEmbedVideo, fullscreenContainer, hasFullscreenSpace, shortsProtection, PROTECTED_SELECTOR, SHORTS_PROTECTED_SELECTOR, SHORTS_LAYOUT_SELECTOR, SHORTS_OBSERVED_SELECTOR, EMBED_TITLE_SELECTOR, EMBED_PROTECTED_SELECTOR });
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else globalThis.XAmbientYouTube = api;
 })();

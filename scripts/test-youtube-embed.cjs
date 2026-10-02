@@ -92,7 +92,14 @@ process.env.MOZ_HEADLESS_WIDTH = '1280'; process.env.MOZ_HEADLESS_HEIGHT = '1024
     results.push({test: 'display-none frame has no paints and restores; player Esc and parent standard fullscreen API exit; parent DOM remains unchanged', pass: true});
     if (process.argv.includes('--live')) {
       await driver.get(base + '/parent?live'); await enter(); await on();
-      const playButtons=await driver.findElements(By.css('button.ytmCuedOverlayPlayButton,button.ytp-large-play-button,button[aria-label="再生"],button[aria-label="動画を再生"],button[aria-label="Play"],button[aria-label="Play video"]'));let trustedPlay=false;for(const b of playButtons){if(await b.isDisplayed()){await b.click();trustedPlay=true;break;}}if(!trustedPlay)await driver.executeScript("return document.querySelector('#movie_player video').play()");await driver.wait(()=>driver.executeScript("return document.querySelector('#movie_player video').currentTime>1"),15000,'public playback progresses');await driver.executeScript("const v=document.querySelector('#movie_player video');v.currentTime=45;v.pause()");await driver.wait(()=>driver.executeScript("const v=document.querySelector('#movie_player video');return !v.seeking&&v.readyState>=2&&v.currentTime>44"),15000);await driver.sleep(2200);
+      const playButtons=await driver.findElements(By.css('button.ytmCuedOverlayPlayButton,button.ytp-large-play-button,button[aria-label="再生"],button[aria-label="動画を再生"],button[aria-label="Play"],button[aria-label="Play video"]'));
+      let trustedPlay=false;
+      if(await driver.executeScript("return document.querySelector('#movie_player video').paused")){
+        for(const button of playButtons){if(await button.isDisplayed()){await button.click();trustedPlay=true;break;}}
+      }
+      await driver.sleep(300);
+      if(await driver.executeScript("return document.querySelector('#movie_player video').paused")) await driver.executeScript("return document.querySelector('#movie_player video').play()");
+      await driver.wait(()=>driver.executeScript("return document.querySelector('#movie_player video').currentTime>1"),15000,'public playback progresses');await driver.executeScript("const v=document.querySelector('#movie_player video');v.currentTime=45;v.pause()");await driver.wait(()=>driver.executeScript("const v=document.querySelector('#movie_player video');return !v.seeking&&v.readyState>=2&&v.currentTime>44"),15000);await driver.sleep(2200);
       const dimensions = await driver.executeScript("const v=document.querySelector('#movie_player video');return {source:[v.videoWidth,v.videoHeight],viewport:[innerWidth,innerHeight],fit:getComputedStyle(v).objectFit,pathname:location.pathname,hostname:location.hostname}");
       assert.equal(dimensions.hostname, embedHost, 'privacy-enhanced host must not be rewritten');
       const originalSource = await driver.executeScript("return document.querySelector('#movie_player video').currentSrc");
@@ -104,7 +111,7 @@ process.env.MOZ_HEADLESS_WIDTH = '1280'; process.env.MOZ_HEADLESS_HEIGHT = '1024
       results.push({test: 'real public YouTube cross-origin embed, visible margin ON/OFF and setting restore; parent unmatched', pass: true, embedHost, privacyEnhanced, trustedPlay,marginOn: liveOn.slice(0,4), marginOff: liveOff.slice(0,4),videoPixels:liveOn.slice(4,7),uiPixels:liveOn.slice(7), ...dimensions});
     }
   } catch (error) {
-    results.push({error: error.stack}); process.exitCode = 1;if(driver)try{results.push({diagnostics:await driver.executeScript("return {path:location.pathname,fullTag:document.fullscreenElement?.tagName,fixture:window.fixture,host:document.querySelector('#x-ambient-light')?.dataset,bodyRect:document.body.getBoundingClientRect().toJSON()}" )});}catch{}
+    results.push({error: error.stack}); process.exitCode = 1;if(driver)try{results.push({diagnostics:await driver.executeScript("return {video:{paused:document.querySelector('video')?.paused,time:document.querySelector('video')?.currentTime,ready:document.querySelector('video')?.readyState},path:location.pathname,fullTag:document.fullscreenElement?.tagName,fixture:window.fixture,host:document.querySelector('#x-ambient-light')?.dataset,bodyRect:document.body.getBoundingClientRect().toJSON()}" )});}catch{}
     if (driver) try { await driver.switchTo().defaultContent(); fs.writeFileSync(path.join(out, 'failure.png'), Buffer.from(await driver.takeScreenshot(), 'base64')); } catch {}
   } finally {
     fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify(results, null, 2));
