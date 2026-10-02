@@ -8,6 +8,8 @@ Firefoxでは `npm ci`、`npm run package:firefox`、`npm run lint:firefox`。�
 
 再現テストは `npm run test:youtube:shorts:fullscreen -- --live`。専用の一時Firefoxプロファイルを使い、localhost fixtureと未ログインの公開Shortsを別プロファイルで検証します。結果は `output/shorts-fullscreen-qa/results.json`。診断hookはテスト用コピーだけに追加し、配布版には含めません。
 
-標準Picture-in-Picture APIでの入退場はFirefox 157で検証し、開始時に描画停止、終了時に復帰しました。Firefox組み込みの別ウィンドウPiPは別機構で、検出と描画は未保証です。利用時は拡張をOFFにしてください。embed、実広告、DRM、認証環境、旧Firefox、Chrome実行は未検証です。サイトのDOM変更により判定やUI保護が変わる可能性があります。
+標準Picture-in-Picture APIでの入退場はFirefox 157で検証し、開始時に描画停止、終了時に復帰しました。Firefox組み込みの別ウィンドウPiPは別機構で、検出と描画は未保証です。利用時は拡張をOFFにしてください。実広告、DRM、認証環境、旧Firefox、Chrome実行は未検証です。サイトのDOM変更により判定やUI保護が変わる可能性があります。
 
 上流mmngaのMIT LICENSEと帰属を保全しています。詳細は [検証記録](docs/YOUTUBE-SHORTS-FULLSCREEN-VALIDATION.md) を参照してください。
+
+埋め込みフレーム内対応は [YOUTUBE_EMBED.ja.md](YOUTUBE_EMBED.ja.md)、組み込みPiPの手順は [FIREFOX_PIP.ja.md](FIREFOX_PIP.ja.md) を参照してください。

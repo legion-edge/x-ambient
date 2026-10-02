@@ -81,6 +81,20 @@
   const clearedBackgrounds = new Set();
   let front = 0;
   let disposed = false;
+  let embedObservedVideo = null;
+  let embedVisible = true;
+  // The browser computes ancestor-frame clipping without reading the parent document.
+  const embedIntersectionObserver = youtube && Boolean(YouTube.embedId(location)) && typeof IntersectionObserver === 'function'
+    ? new IntersectionObserver(entries => {
+      const entry = entries.find(entry => entry.target === embedObservedVideo);
+      if (!entry) return;
+      const visible = entry.isIntersecting && entry.intersectionRect.width > 4 && entry.intersectionRect.height > 4;
+      if (visible !== embedVisible) {
+        embedVisible = visible;
+        // Hidden frames can suspend rAF; stop immediately rather than queueing a paint.
+        if (!visible) deactivate(); else scheduleReconcile();
+      }
+    }, { threshold: [0, 0.01] }) : null;
 
   const host = document.createElement("div");
   host.id = "x-ambient-light";
@@ -148,8 +162,16 @@
     if (!settings.enabled || settings.intensity <= 0 || document.hidden) return false;
     if (!youtube) return !document.fullscreenElement;
     const video = !youtubeNavigating && YouTube?.findVideo(document, location);
+    const embed = Boolean(YouTube.embedId(location));
+    if (embedIntersectionObserver && embedObservedVideo !== (embed ? video : null)) {
+      embedIntersectionObserver.disconnect();
+      embedObservedVideo = embed ? video : null;
+      embedVisible = true;
+      if (embedObservedVideo) embedIntersectionObserver.observe(embedObservedVideo);
+    }
     if (!video) return false;
-    if (!document.fullscreenElement) return true;
+    if (embed && !embedVisible) return false;
+    if (!document.fullscreenElement && !YouTube.embedId(location)) return true;
     const box = video.getBoundingClientRect();
     const content = imageDescriptor(video, video, box, box)?.fullRect;
     return YouTube.hasFullscreenSpace(content, viewport());
@@ -188,6 +210,7 @@
 
   function updateTheme() {
     if (platform === "x") return;
+    if (youtube && YouTube.embedId(location)) { host.style.mixBlendMode = "normal"; return; }
     // Player fullscreen uses black bars; Shorts can fullscreen the light-themed HTML root.
     if (fullscreenTarget && (fullscreenTarget !== document.documentElement || !YouTube.shortsId(location))) { host.style.mixBlendMode = "screen"; return; }
     const backgrounds = [document.documentElement, document.body].filter(Boolean)
@@ -423,15 +446,17 @@
     if (!activePost || !bounds) return;
     const view = viewport();
     const shorts = youtube && Boolean(YouTube.shortsId(location));
-    const scope = fullscreenTarget ? "fullscreen" : shorts ? "page" : settings.scope;
+    const embed = youtube && Boolean(YouTube.embedId(location));
+    const youtubeProtection = embed ? YouTube.EMBED_PROTECTED_SELECTOR : shorts ? YouTube.SHORTS_PROTECTED_SELECTOR : YouTube.PROTECTED_SELECTOR;
+    const scope = fullscreenTarget ? "fullscreen" : shorts || embed ? "page" : settings.scope;
     host.dataset.scope = scope;
     host.dataset.projection = "rays";
     let region;
     if (scope === "page" || scope === "fullscreen") {
       const protectedRects = [];
       const protectedElements = fullscreenTarget
-        ? [activePost, ...fullscreenTarget.querySelectorAll(shorts ? YouTube.SHORTS_PROTECTED_SELECTOR : YouTube.PROTECTED_SELECTOR)]
-        : shorts ? [activePost, ...document.querySelectorAll(YouTube.SHORTS_PROTECTED_SELECTOR)]
+        ? [activePost, ...fullscreenTarget.querySelectorAll(youtubeProtection)]
+        : shorts || embed ? [activePost, ...document.querySelectorAll(youtubeProtection)]
           : document.querySelectorAll("img, video, canvas");
       for (const element of protectedElements) {
         // Instagram's decorative Reel backdrop must remain part of the lit background.
@@ -447,15 +472,18 @@
         const letterboxed = Math.abs(picture.width - box.width) > 2 || Math.abs(picture.height - box.height) > 2;
         protectedRects.push({ ...rect, radius: letterboxed ? 0 : Math.min(radius, rect.width / 2, rect.height / 2) });
       }
-      const nextKey = `${view.width}:${view.height}:${protectedRects.map((rect) => [rect.left, rect.top, rect.width, rect.height, rect.radius].map(Math.round).join(",")).join(";")}`;
+      const embedClip = embed ? Core.buildBackgroundClip(protectedRects, view) : "none";
+      const nextKey = embed ? `embed:${embedClip}` : `${view.width}:${view.height}:${protectedRects.map((rect) => [rect.left, rect.top, rect.width, rect.height, rect.radius].map(Math.round).join(",")).join(";")}`;
       if (nextKey !== protectionKey) {
-        light.style.maskImage = Core.buildMediaMask(protectedRects, view);
+        light.style.maskImage = embed ? "none" : Core.buildMediaMask(protectedRects, view);
+        light.style.clipPath = embedClip;
         protectionKey = nextKey;
       }
       const padding = settings.blur * 2;
       region = { left: -padding, top: -padding, width: view.width + padding * 2, height: view.height + padding * 2 };
     } else {
       protectionKey = "";
+      light.style.clipPath = "none";
       light.style.maskImage = Core.buildPostMask(activePost.getBoundingClientRect(), view);
       const padding = 60 + settings.spread * 3.4;
       region = { left: bounds.left - padding, top: bounds.top - padding, width: bounds.width + padding * 2, height: bounds.height + padding * 2 };
@@ -686,16 +714,18 @@
         const target = record.target;
           if (!(target instanceof Element) || target === host || host.contains(target)) return false;
           if (fullscreenTarget?.contains(target)) return true;
+          const embedUI = Boolean(YouTube.embedId(location)) && (target.matches(YouTube.EMBED_PROTECTED_SELECTOR + ", " + YouTube.EMBED_TITLE_SELECTOR) || target.closest("#movie_player, [role=dialog], [role=menu]"));
           const shortsUI = Boolean(YouTube.shortsId(location)) && (target.matches(YouTube.SHORTS_PROTECTED_SELECTOR)
             || target.closest('ytd-engagement-panel-section-list-renderer, [role=dialog]'));
           if (record.type === "attributes") {
             // Ignore only our own native-ambient marker; site state still triggers reconciliation.
             if (record.attributeName === "class" && record.oldValue?.split(/\s+/).filter(x=>x!=="xa-youtube-active").join(" ") === (target.getAttribute('class') || '').split(/\s+/).filter(x=>x!=="xa-youtube-active").join(" ")) return false;
-            return shortsUI || target.matches("ytd-watch-flexy, ytd-reel-video-renderer, #movie_player, #shorts-player, video") || Boolean(target.closest("ytd-shorts"));
+            return shortsUI || embedUI || target.matches("ytd-watch-flexy, ytd-reel-video-renderer, #movie_player, #shorts-player, video") || Boolean(target.closest("ytd-shorts"));
           }
-          if (shortsUI || (YouTube.shortsId(location) && target.closest('ytd-shorts'))) return true;
+          if (embedUI || shortsUI || (YouTube.shortsId(location) && target.closest('ytd-shorts'))) return true;
           return [...record.addedNodes, ...record.removedNodes].some(node => node.nodeType === Node.ELEMENT_NODE
             && (node.matches("ytd-watch-flexy, ytd-shorts, ytd-reel-video-renderer, #movie_player, #shorts-player, video") || node.querySelector("ytd-watch-flexy, ytd-shorts, ytd-reel-video-renderer, #movie_player, #shorts-player, video")
+              || (YouTube.embedId(location) && (node.matches(YouTube.EMBED_PROTECTED_SELECTOR + ", " + YouTube.EMBED_TITLE_SELECTOR) || node.querySelector(YouTube.EMBED_PROTECTED_SELECTOR + ", " + YouTube.EMBED_TITLE_SELECTOR)))
               || (YouTube.shortsId(location) && (node.matches(YouTube.SHORTS_PROTECTED_SELECTOR) || node.querySelector(YouTube.SHORTS_PROTECTED_SELECTOR)))));
       })) scheduleReconcile();
       return;
@@ -798,6 +828,7 @@
     cancelAnimationFrame(reconcileFrame);
     activeObserver.disconnect();
     pageObserver.disconnect();
+    embedIntersectionObserver?.disconnect();
     themeObserver.disconnect();
     cards?.dispose();
     restoreBackgrounds();

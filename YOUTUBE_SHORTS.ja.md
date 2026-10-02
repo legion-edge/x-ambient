@@ -11,3 +11,5 @@ Firefox: `npm ci` → `npm run package:firefox` → `npm run lint:firefox`。一
 Shorts全画面は [全画面手順](YOUTUBE_SHORTS_FULLSCREEN.ja.md) を参照してください。embedは対応範囲外です。標準PiP開始時の停止・終了時の復帰はFirefox 157で検証済みです。Firefox固有PiPの検出は保証できないため使用時は拡張OFFにしてください。実広告・DRM・ログイン環境・モバイル・旧Firefox・Chromeでの実行は未検証です。サイトDOMの変更でプレーヤー識別やUI保護が変わる場合があります。一般的なUIを矩形で保護するため、周囲の背景も一部光らない場合があります。CPU使用率の端末横断ベンチマークは行っていません。
 
 上流mmngaのMIT LICENSEと帰属を保全しています。Shorts追加で権限・外部データ送信・バックグラウンド処理は追加していません。
+
+埋め込みフレーム内対応は [YOUTUBE_EMBED.ja.md](YOUTUBE_EMBED.ja.md)、組み込みPiPの手順は [FIREFOX_PIP.ja.md](FIREFOX_PIP.ja.md) を参照してください。

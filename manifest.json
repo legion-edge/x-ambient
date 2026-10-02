@@ -46,7 +46,24 @@
         "src/youtube.js",
         "src/content.js"
       ],
-      "run_at": "document_idle"
+      "run_at": "document_idle",
+      "exclude_matches": [
+        "https://www.youtube.com/embed/*"
+      ]
+    },
+    {
+      "matches": [
+        "https://www.youtube.com/embed/*"
+      ],
+      "js": [
+        "src/settings.js",
+        "src/ambient-core.js",
+        "src/streaming.js",
+        "src/youtube.js",
+        "src/content.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": true
     }
   ],
   "default_locale": "en"

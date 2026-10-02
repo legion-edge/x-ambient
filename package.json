@@ -22,7 +22,7 @@
   ],
   "scripts": {
     "test": "node --test tests/*.test.cjs",
-    "check": "node --check src/i18n.js && node --check src/instagram.js && node --check src/streaming.js && node --check src/x-posts.js && node --check scripts/zip.cjs && node --check src/settings.js && node --check src/ambient-core.js && node --check src/card-layout.js && node --check src/content.js && node --check src/popup.js && node --check demo/demo.js && node --check scripts/demo-server.cjs && node --check scripts/package.cjs && node --check scripts/test-firefox.cjs && node --check src/youtube.js && node --check scripts/test-youtube.cjs && node --check scripts/test-youtube-fullscreen.cjs && node --check scripts/test-youtube-shorts.cjs && node --check scripts/test-shorts-navigation.cjs && node --check scripts/test-youtube-shorts-fullscreen.cjs",
+    "check": "node --check src/i18n.js && node --check src/instagram.js && node --check src/streaming.js && node --check src/x-posts.js && node --check scripts/zip.cjs && node --check src/settings.js && node --check src/ambient-core.js && node --check src/card-layout.js && node --check src/content.js && node --check src/popup.js && node --check demo/demo.js && node --check scripts/demo-server.cjs && node --check scripts/package.cjs && node --check scripts/test-firefox.cjs && node --check src/youtube.js && node --check scripts/test-youtube.cjs && node --check scripts/test-youtube-fullscreen.cjs && node --check scripts/test-youtube-shorts.cjs && node --check scripts/test-shorts-navigation.cjs && node --check scripts/test-youtube-shorts-fullscreen.cjs && node --check scripts/test-youtube-embed.cjs && node --check scripts/test-firefox-native-pip.cjs",
     "demo": "node scripts/demo-server.cjs",
     "package": "node scripts/package.cjs",
     "package:firefox": "node scripts/package.cjs --firefox",
@@ -32,7 +32,9 @@
     "test:youtube:fullscreen": "node scripts/test-youtube-fullscreen.cjs",
     "test:youtube:shorts": "node scripts/test-youtube-shorts.cjs",
     "test:youtube:navigation": "node scripts/test-shorts-navigation.cjs",
-    "test:youtube:shorts:fullscreen": "node scripts/test-youtube-shorts-fullscreen.cjs"
+    "test:youtube:shorts:fullscreen": "node scripts/test-youtube-shorts-fullscreen.cjs",
+    "test:youtube:embed": "node scripts/test-youtube-embed.cjs",
+    "test:firefox:native-pip": "node scripts/test-firefox-native-pip.cjs"
   },
   "engines": {
     "node": ">=22"
