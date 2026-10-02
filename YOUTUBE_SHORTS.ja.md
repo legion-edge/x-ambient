@@ -13,3 +13,5 @@ Shorts全画面は [全画面手順](YOUTUBE_SHORTS_FULLSCREEN.ja.md) を参照�
 上流mmngaのMIT LICENSEと帰属を保全しています。Shorts追加で権限・外部データ送信・バックグラウンド処理は追加していません。
 
 埋め込みフレーム内対応は [YOUTUBE_EMBED.ja.md](YOUTUBE_EMBED.ja.md)、組み込みPiPの手順は [FIREFOX_PIP.ja.md](FIREFOX_PIP.ja.md) を参照してください。
+
+透明な大きいoverlayが白い余白まで描画除外していた不具合を修正しました。動画の周囲の空白に色を出し、文字は折返しの行ごと、ボタン・字幕・コメントは実際のUI範囲で保護します。文字の小さな元背景は読みやすさのため残ります。[修正前後と検証](docs/YOUTUBE-SHORTS-OVERLAY-VALIDATION.md)。

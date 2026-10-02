@@ -455,7 +455,8 @@
     let region;
     if (scope === "page" || scope === "fullscreen") {
       const protectedRects = [];
-      const protectedElements = fullscreenTarget
+      const shortUI = shorts ? YouTube.shortsProtection(fullscreenTarget || document, activePost.closest('ytd-reel-video-renderer')) : null;
+      const protectedElements = shortUI ? [activePost, ...shortUI.elements] : fullscreenTarget
         ? [activePost, ...fullscreenTarget.querySelectorAll(youtubeProtection)]
         : shorts || embed ? [activePost, ...document.querySelectorAll(youtubeProtection)]
           : document.querySelectorAll("img, video, canvas");
@@ -473,8 +474,12 @@
         const letterboxed = Math.abs(picture.width - box.width) > 2 || Math.abs(picture.height - box.height) > 2;
         protectedRects.push({ ...rect, radius: letterboxed ? 0 : Math.min(radius, rect.width / 2, rect.height / 2) });
       }
+      for (const { element, rect } of shortUI?.textRects || []) {
+        const visible = visibleRect(element, rect, 1, 1);
+        if (visible) protectedRects.push({ ...visible, radius: 0 });
+      }
       const embedClip = embed ? Core.buildBackgroundClip(protectedRects, view) : "none";
-      const nextKey = embed ? `embed:${embedClip}` : `${view.width}:${view.height}:${protectedRects.map((rect) => [rect.left, rect.top, rect.width, rect.height, rect.radius].map(Math.round).join(",")).join(";")}`;
+      const nextKey = embed ? `embed:${embedClip}` : `${view.width}:${view.height}:${protectedRects.map((rect) => [rect.left, rect.top, rect.width, rect.height, rect.radius].map(value => shorts ? Math.round(value * 2) / 2 : Math.round(value)).join(",")).join(";")}`;
       if (nextKey !== protectionKey) {
         light.style.maskImage = embed ? "none" : Core.buildMediaMask(protectedRects, view);
         light.style.clipPath = embedClip;
@@ -712,12 +717,12 @@
   const pageObserver = new MutationObserver((records) => {
     if (youtube) {
       if (route !== routeKey() || records.some(record => {
-        const target = record.target;
+        const target = record.target instanceof Element ? record.target : record.target.parentElement;
           if (!(target instanceof Element) || target === host || host.contains(target)) return false;
           if (fullscreenTarget?.contains(target)) return true;
           const embedUI = Boolean(YouTube.embedId(location)) && (target.matches(YouTube.EMBED_PROTECTED_SELECTOR + ", " + YouTube.EMBED_TITLE_SELECTOR) || target.closest("#movie_player, [role=dialog], [role=menu]"));
-          const shortsUI = Boolean(YouTube.shortsId(location)) && (target.matches(YouTube.SHORTS_PROTECTED_SELECTOR)
-            || target.closest('ytd-engagement-panel-section-list-renderer, [role=dialog]'));
+          const shortsUI = Boolean(YouTube.shortsId(location)) && (target.matches(YouTube.SHORTS_OBSERVED_SELECTOR)
+            || target.closest(YouTube.SHORTS_LAYOUT_SELECTOR + ', ytd-engagement-panel-section-list-renderer, [role=dialog]'));
           if (record.type === "attributes") {
             // Ignore only our own native-ambient marker; site state still triggers reconciliation.
             if (record.attributeName === "class" && record.oldValue?.split(/\s+/).filter(x=>x!=="xa-youtube-active").join(" ") === (target.getAttribute('class') || '').split(/\s+/).filter(x=>x!=="xa-youtube-active").join(" ")) return false;
@@ -727,7 +732,7 @@
           return [...record.addedNodes, ...record.removedNodes].some(node => node.nodeType === Node.ELEMENT_NODE
             && (node.matches("ytd-watch-flexy, ytd-shorts, ytd-reel-video-renderer, #movie_player, #shorts-player, video") || node.querySelector("ytd-watch-flexy, ytd-shorts, ytd-reel-video-renderer, #movie_player, #shorts-player, video")
               || (YouTube.embedId(location) && (node.matches(YouTube.EMBED_PROTECTED_SELECTOR + ", " + YouTube.EMBED_TITLE_SELECTOR) || node.querySelector(YouTube.EMBED_PROTECTED_SELECTOR + ", " + YouTube.EMBED_TITLE_SELECTOR)))
-              || (YouTube.shortsId(location) && (node.matches(YouTube.SHORTS_PROTECTED_SELECTOR) || node.querySelector(YouTube.SHORTS_PROTECTED_SELECTOR)))));
+              || (YouTube.shortsId(location) && (node.matches(YouTube.SHORTS_OBSERVED_SELECTOR) || node.querySelector(YouTube.SHORTS_OBSERVED_SELECTOR)))));
       })) scheduleReconcile();
       return;
     }
@@ -745,7 +750,8 @@
   pageObserver.observe(document.body, {
     childList: true, subtree: true,
       attributes: true,
-      attributeOldValue: youtube,
+        attributeOldValue: youtube,
+        characterData: youtube,
     attributeFilter: youtube ? ["style", "class", "hidden", "visibility", "aria-hidden", "aria-expanded", "open", "role", "is-active", "video-id", "theater", "is-miniplayer", "src", "href"]
       : automatic ? ["style", "class", "hidden", "aria-hidden", "src", "srcset", "poster"] : ["href"],
   });

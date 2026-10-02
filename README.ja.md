@@ -88,3 +88,5 @@ Firefox用の作成・一時インストールと検証手順は [FIREFOX.ja.md]
 PC版YouTubeのwatch本編に対応。[対象範囲・手順](YOUTUBE.ja.md) を参照してください。
 
 YouTubeの通常埋め込みとプライバシー強化版はフレーム内に対応します。[利用と権限](YOUTUBE_EMBED.ja.md)、[Firefox組み込みPiPの手順と制限](FIREFOX_PIP.ja.md) を参照してください。
+
+Shortsの広い白い余白が描画除外される問題は、透明wrapperと局所UIの保護を分けて修正しています。[修正前後](docs/YOUTUBE-SHORTS-OVERLAY-VALIDATION.md) を参照してください。
