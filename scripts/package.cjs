@@ -8,7 +8,7 @@ const firefox = process.argv.includes("--firefox");
 const name = firefox ? "x-ambient-firefox" : "x-ambient";
 const destination = path.join(outputRoot, name);
 const archive = path.join(outputRoot, `${name}.zip`);
-const files = ["manifest.json", "LICENSE", "INSTALL.md", "YOUTUBE.ja.md", "YOUTUBE_FULLSCREEN.ja.md", "YOUTUBE_SHORTS.ja.md", "src/settings.js", "src/i18n.js", "src/streaming.js", "src/instagram.js", "src/youtube.js", "src/x-posts.js", "src/ambient-core.js", "src/card-layout.js", "src/content.js", "src/popup.html", "src/popup.css", "src/popup.js", ...LANGUAGES.map(locale => `_locales/${locale}/messages.json`), ...[16, 32, 48, 128].map(size => `icons/icon-${size}.png`)];
+const files = ["manifest.json", "LICENSE", "INSTALL.md", "YOUTUBE.ja.md", "YOUTUBE_FULLSCREEN.ja.md", "YOUTUBE_SHORTS.ja.md", "YOUTUBE_SHORTS_FULLSCREEN.ja.md", "docs/YOUTUBE-SHORTS-FULLSCREEN-VALIDATION.md", "src/settings.js", "src/i18n.js", "src/streaming.js", "src/instagram.js", "src/youtube.js", "src/x-posts.js", "src/ambient-core.js", "src/card-layout.js", "src/content.js", "src/popup.html", "src/popup.css", "src/popup.js", ...LANGUAGES.map(locale => `_locales/${locale}/messages.json`), ...[16, 32, 48, 128].map(size => `icons/icon-${size}.png`)];
 const entries = files.map(name => ({ name, data: fs.readFileSync(path.join(root, name)) }));
 if (firefox) {
   const entry = entries.find(entry => entry.name === "manifest.json");
