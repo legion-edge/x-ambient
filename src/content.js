@@ -57,7 +57,7 @@
   const posterCache = new WeakMap();
   let settings = { ...Settings.DEFAULTS };
   let pathname = location.pathname;
-  const routeKey = () => youtube ? `${location.pathname}:${YouTube?.watchId(location) || ""}` : location.pathname;
+  const routeKey = () => youtube ? `${location.pathname}:${YouTube?.routeId(location) || ""}` : location.pathname;
   let route = routeKey();
   let youtubeNavigating = false;
   let nativeAmbientOwner = null;
@@ -122,7 +122,7 @@
   if (youtubeStyle) {
     // Only suppress YouTube's visual layer while ours is actually drawing.
     // Never change YouTube's stored ambient preference or its controls.
-    youtubeStyle.textContent = "ytd-watch-flexy.xa-youtube-active #cinematics { visibility:hidden !important; }";
+    youtubeStyle.textContent = "ytd-watch-flexy.xa-youtube-active #cinematics, ytd-reel-video-renderer.xa-youtube-active #cinematic-container, ytd-reel-video-renderer.xa-youtube-active #shorts-cinematic-container { visibility:hidden !important; }";
     document.documentElement.append(youtubeStyle);
   }
   document.documentElement.append(host);
@@ -172,7 +172,7 @@
 
   function syncNativeAmbient(active) {
     if (!youtube) return;
-    const owner = active ? activePost?.closest("ytd-watch-flexy") : null;
+    const owner = active ? activePost?.closest("ytd-watch-flexy, ytd-reel-video-renderer") : null;
     if (nativeAmbientOwner !== owner) nativeAmbientOwner?.classList.remove("xa-youtube-active");
     nativeAmbientOwner = owner;
     if (owner && !owner.classList.contains("xa-youtube-active")) owner.classList.add("xa-youtube-active");
@@ -295,7 +295,7 @@
     let rect = Core.intersectRect(fullRect, { left: 0, top: 0, right: view.width, bottom: view.height });
     for (let parent = element.parentElement; rect && parent; parent = parent.parentElement) {
       const style = getComputedStyle(parent);
-      if (style.opacity === "0" || (instagram && (parent.hidden || parent.getAttribute("aria-hidden") === "true"))) return null;
+      if (style.opacity === "0" || ((instagram || youtube) && (parent.hidden || parent.getAttribute("aria-hidden") === "true"))) return null;
       // HTML propagates body overflow to the viewport when root overflow is visible.
       // YouTube's body can have zero height while its app visibly overflows it.
       const rootStyle = parent === document.body ? getComputedStyle(document.documentElement) : null;
@@ -421,7 +421,8 @@
   function updateLayout() {
     if (!activePost || !bounds) return;
     const view = viewport();
-    const scope = fullscreenTarget ? "fullscreen" : settings.scope;
+    const shorts = youtube && Boolean(YouTube.shortsId(location));
+    const scope = fullscreenTarget ? "fullscreen" : shorts ? "page" : settings.scope;
     host.dataset.scope = scope;
     host.dataset.projection = "rays";
     let region;
@@ -429,7 +430,8 @@
       const protectedRects = [];
       const protectedElements = fullscreenTarget
         ? [activePost, ...fullscreenTarget.querySelectorAll(YouTube.PROTECTED_SELECTOR)]
-        : document.querySelectorAll("img, video, canvas");
+        : shorts ? [activePost, ...document.querySelectorAll(YouTube.SHORTS_PROTECTED_SELECTOR)]
+          : document.querySelectorAll("img, video, canvas");
       for (const element of protectedElements) {
         // Instagram's decorative Reel backdrop must remain part of the lit background.
         if (instagram && element.tagName === "IMG" && element.getAttribute("aria-hidden") === "true") continue;
@@ -681,11 +683,19 @@
     if (youtube) {
       if (route !== routeKey() || records.some(record => {
         const target = record.target;
-        if (!(target instanceof Element) || target === host || host.contains(target)) return false;
-        if (fullscreenTarget?.contains(target)) return true;
-        if (record.type === "attributes") return target.matches("ytd-watch-flexy, #movie_player, video");
-        return [...record.addedNodes, ...record.removedNodes].some(node => node.nodeType === Node.ELEMENT_NODE
-          && (node.matches("ytd-watch-flexy, #movie_player, video") || node.querySelector("ytd-watch-flexy, #movie_player, video")));
+          if (!(target instanceof Element) || target === host || host.contains(target)) return false;
+          if (fullscreenTarget?.contains(target)) return true;
+          const shortsUI = Boolean(YouTube.shortsId(location)) && (target.matches(YouTube.SHORTS_PROTECTED_SELECTOR)
+            || target.closest('ytd-engagement-panel-section-list-renderer, [role=dialog]'));
+          if (record.type === "attributes") {
+            // Ignore only our own native-ambient marker; site state still triggers reconciliation.
+            if (record.attributeName === "class" && record.oldValue?.split(/\s+/).filter(x=>x!=="xa-youtube-active").join(" ") === (target.getAttribute('class') || '').split(/\s+/).filter(x=>x!=="xa-youtube-active").join(" ")) return false;
+            return shortsUI || target.matches("ytd-watch-flexy, ytd-reel-video-renderer, #movie_player, #shorts-player, video") || Boolean(target.closest("ytd-shorts"));
+          }
+          if (shortsUI || (YouTube.shortsId(location) && target.closest('ytd-shorts'))) return true;
+          return [...record.addedNodes, ...record.removedNodes].some(node => node.nodeType === Node.ELEMENT_NODE
+            && (node.matches("ytd-watch-flexy, ytd-shorts, ytd-reel-video-renderer, #movie_player, #shorts-player, video") || node.querySelector("ytd-watch-flexy, ytd-shorts, ytd-reel-video-renderer, #movie_player, #shorts-player, video")
+              || (YouTube.shortsId(location) && (node.matches(YouTube.SHORTS_PROTECTED_SELECTOR) || node.querySelector(YouTube.SHORTS_PROTECTED_SELECTOR)))));
       })) scheduleReconcile();
       return;
     }
@@ -702,8 +712,9 @@
   });
   pageObserver.observe(document.body, {
     childList: true, subtree: true,
-    attributes: true,
-    attributeFilter: youtube ? ["style", "class", "hidden", "video-id", "theater", "is-miniplayer", "src"]
+      attributes: true,
+      attributeOldValue: youtube,
+    attributeFilter: youtube ? ["style", "class", "hidden", "aria-hidden", "is-active", "video-id", "theater", "is-miniplayer", "src", "href"]
       : automatic ? ["style", "class", "hidden", "aria-hidden", "src", "srcset", "poster"] : ["href"],
   });
   const themeObserver = new MutationObserver(scheduleReconcile);
